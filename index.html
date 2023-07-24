@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Image Classification with TensorFlow.js</title>
+  <style>
+    /* Load the Roboto font */
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+    body {
+      font-family: 'Roboto', sans-serif;
+    }
+
+    #prediction {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+
+    /* Hide the image until uploaded */
+    #uploadedImage {
+      display: none;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.9.0/dist/tf.min.js"></script>
+</head>
+<body>
+  <h1>Image Classification</h1>
+  <input type="file" id="imageUpload" accept="image/*">
+  <div id="prediction"></div>
+  <div id="uploadedImageContainer">
+    <img id="uploadedImage" width="224" height="224">
+  </div>
+
+  <script>
+    let currentImageURL = null; // Store the URL of the currently displayed image
+
+    // Load the MobileNet pre-trained model
+    async function loadModel() {
+      const model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_1.0_224/model.json');
+      return model;
+    }
+
+    // Classify the uploaded image
+    async function classifyImage(model, imgElement) {
+      const img = tf.browser.fromPixels(imgElement).toFloat().expandDims();
+      const predictions = await model.predict(img).data();
+      const topPrediction = Array.from(predictions).map((p, i) => {
+        return { probability: p, className: IMAGENET_CLASSES[i] };
+      }).sort((a, b) => b.probability - a.probability)[0];
+      return topPrediction;
+    }
+
+    // Update the prediction result
+    function updatePrediction(result) {
+      const predictionElement = document.getElementById('prediction');
+      predictionElement.innerHTML = `Prediction: ${result.className} (Confidence: ${result.probability.toFixed(3)})`;
+    }
+
+    // Handle image upload
+    document.getElementById('imageUpload').addEventListener('change', async function (e) {
+      const file = e.target.files[0];
+      const imgElement = document.getElementById('uploadedImage');
+      imgElement.src = URL.createObjectURL(file);
+
+      // Remove the previously uploaded image if it exists
+      if (currentImageURL) {
+        URL.revokeObjectURL(currentImageURL);
+      }
+      currentImageURL = imgElement.src;
+
+      // Show the uploaded image
+      imgElement.style.display = 'block';
+
+      const model = await loadModel();
+      const result = await classifyImage(model, imgElement);
+      updatePrediction(result);
+    });
+
+    // ImageNet classes for MobileNet model
+    const IMAGENET_CLASSES = ['tench', 'goldfish', 'great_white_shark', 'tiger_shark', 'hammerhead_shark', /* ... add more classes ... */ ];
+  </script>
+</body>
+</html>
